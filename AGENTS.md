@@ -466,3 +466,19 @@ YYYY-MM-DD | agent/tool | branch | what was done | tests run | next step | block
 ```
 
 _(No sessions logged yet.)_
+
+---
+
+## Cursor Cloud specific instructions
+
+Cloud Agent VMs use native PostgreSQL and Redis (not Docker Compose). After checkout, run:
+
+```bash
+bash scripts/cloud-agent-install.sh   # venv, pip, collectstatic (idempotent)
+bash scripts/cloud-agent-start.sh       # start DB/Redis, migrate, seed if empty, Django :8000
+```
+
+- **Demo login:** `admin@hpe.com` / `Password123!` (see `docs/docker_setup.md` for all roles).
+- **Health:** `curl http://127.0.0.1:8000/health/`
+- **Lint/tests:** `source .venv/bin/activate && export PYTHONPATH=src DJANGO_SETTINGS_MODULE=config.settings.dev` then `ruff check .`, `black --check .`, `pytest --cov=src`
+- **Celery (optional):** `celery -A config worker -l info` and `celery -A config beat -l info` with Redis running.

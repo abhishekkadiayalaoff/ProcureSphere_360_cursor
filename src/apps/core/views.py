@@ -141,7 +141,7 @@ def home_view(request):
     }
 
     if role_code == "DEPT_APPROVER":
-        context.update(build_department_dashboard_context(request.user))
+        context.update(build_department_dashboard_context(request.user, request.GET))
         context["review_form"] = DepartmentNeedReviewForm()
 
     if role_code == "SUPER_ADMIN":

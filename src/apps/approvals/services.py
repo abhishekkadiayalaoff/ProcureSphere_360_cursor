@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from apps.accounts.models import Role, User
 from apps.audit.models import AuditLog
+from apps.core.middleware import get_client_ip, get_current_request_id, get_user_agent
 
 from .models import ApprovalAction, ApprovalDelegate, ApprovalPolicy, ApprovalStep
 
@@ -139,18 +140,23 @@ def record_approval_action_service(
         new_state=new_state,
     )
 
-    # Write append-only AuditLog
+    if action == ApprovalAction.ACTION_APPROVE:
+        audit_action = AuditLog.ACTION_APPROVE
+    elif action == ApprovalAction.ACTION_REJECT:
+        audit_action = AuditLog.ACTION_REJECT
+    else:
+        audit_action = AuditLog.ACTION_UPDATE
+
     AuditLog.objects.create(
         actor=actor,
-        action=(
-            AuditLog.ACTION_APPROVE
-            if action == ApprovalAction.ACTION_APPROVE
-            else AuditLog.ACTION_REJECT
-        ),
+        action=audit_action,
         target_model=target_model_name,
         target_object_id=str(target_object_id),
         previous_state={"status": previous_state},
         new_state={"status": new_state, "comments": comments},
+        ip_address=get_client_ip(),
+        request_id=get_current_request_id() or "",
+        user_agent=get_user_agent() or "",
     )
 
     return approval_action

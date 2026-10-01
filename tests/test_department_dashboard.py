@@ -3,6 +3,7 @@ from decimal import Decimal
 
 import pytest
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -14,13 +15,17 @@ from apps.approvals.services import (
     create_approval_policy_service,
     set_approval_delegate_service,
 )
+from apps.audit.models import AuditLog
 from apps.budgets.models import BudgetReservation
 from apps.budgets.services import allocate_budget_service
+from apps.notifications.models import Notification
 from apps.organization.models import CostCenter, Department, FiscalPeriod, Organization
-from apps.requisitions.models import PurchaseRequisition
+from apps.requisitions.models import PRAttachment, PurchaseRequisition
 from apps.requisitions.services import (
     DECISION_CONFIRM_NEED,
     DECISION_REJECT_NEED,
+    LIMIT_EXCEEDED_MESSAGE,
+    WorkflowConflict,
     create_purchase_requisition_service,
     department_need_review_service,
     submit_purchase_requisition_service,
@@ -220,7 +225,7 @@ def test_department_dashboard_session_flow(db_roles):
     page = client.get(reverse("home"))
     assert page.status_code == 200
     body = page.content.decode()
-    assert "Department Approver Dashboard" in body
+    assert "Department Approval" in body
     assert pr.pr_number in body
     assert "Department approver reviews need?" in body
     assert "Session dashboard routers" in body
@@ -269,3 +274,110 @@ def test_department_review_api_rbac(db_roles, api_client):
     )
     assert accepted.status_code == 200
     assert accepted.json()["status"] == PurchaseRequisition.STATUS_BUDGET_REVIEW
+    assert accepted.json()["next_step"] == "Budget review"
+
+
+@pytest.mark.django_db
+def test_queue_search_limit_conflict_and_clarification(db_roles, api_client):
+    dept, approver, requester, cost_center = _org_setup(db_roles, "DEPT-Q")
+    pr = _submitted_pr(requester, dept, cost_center, title="Unique router search token")
+    Notification.objects.get(recipient=approver, title__contains=pr.pr_number)
+
+    api_client.force_login(approver)
+    queue = api_client.get("/api/v1/requisitions/approval-queue/", {"q": "Unique router"})
+    assert queue.status_code == 200
+    body = queue.json()
+    assert body["kpis"]["pending_approval"] >= 1
+    assert body["results"][0]["pr_number"] == pr.pr_number
+    assert body["results"][0]["next_step"] == "Department approver reviews need"
+
+    missed = api_client.get("/api/v1/requisitions/approval-queue/", {"q": "does-not-exist"})
+    assert missed.json()["results"] == []
+
+    detail = api_client.get(f"/api/v1/requisitions/{pr.id}/approval-detail/")
+    assert detail.status_code == 200
+    assert detail.json()["authority"]["within_limit"] is True
+
+    clarified = api_client.post(
+        f"/api/v1/requisitions/{pr.id}/clarification/",
+        {"question": "Which building receives the routers?"},
+        format="json",
+    )
+    assert clarified.status_code == 200
+    pr.refresh_from_db()
+    assert pr.status == PurchaseRequisition.STATUS_MANAGER_REVIEW
+    assert Notification.objects.filter(
+        recipient=requester, title__contains="Clarification"
+    ).exists()
+
+    pr.status = PurchaseRequisition.STATUS_APPROVED
+    pr.save(update_fields=["status"])
+    conflict = api_client.post(
+        f"/api/v1/requisitions/{pr.id}/department-review/",
+        {"decision": DECISION_CONFIRM_NEED, "comments": "late"},
+        format="json",
+    )
+    assert conflict.status_code == 409
+
+    capped = ApprovalPolicy.objects.get(department=dept)
+    capped.max_amount = Decimal("10.00")
+    capped.save(update_fields=["max_amount"])
+    other = _submitted_pr(requester, dept, cost_center, title="Above the cap")
+    with pytest.raises(ValidationError, match="Approval limit exceeded"):
+        department_need_review_service(
+            requisition=other,
+            approver=approver,
+            decision=DECISION_CONFIRM_NEED,
+            comments="too large",
+        )
+    assert LIMIT_EXCEEDED_MESSAGE
+    audit = AuditLog.objects.filter(target_object_id=str(pr.id), action=AuditLog.ACTION_UPDATE)
+    assert audit.exists()
+
+
+@pytest.mark.django_db
+def test_attachment_download_is_scoped(db_roles):
+    dept, approver, requester, cost_center = _org_setup(db_roles, "DEPT-FILE")
+    pr = _submitted_pr(requester, dept, cost_center, title="With attachment")
+    attachment = PRAttachment.objects.create(
+        requisition=pr,
+        title="Quote",
+        file=SimpleUploadedFile("quote.pdf", b"%PDF-1.4 quote", content_type="application/pdf"),
+    )
+    _other_dept, other_approver, _req, _cc = _org_setup(db_roles, "DEPT-OTHER")
+    client = Client()
+    client.force_login(other_approver)
+    denied = client.get(reverse("requisition_attachment_download", args=[attachment.id]))
+    assert denied.status_code == 403
+    client.force_login(approver)
+    allowed = client.get(reverse("requisition_attachment_download", args=[attachment.id]))
+    assert allowed.status_code == 200
+
+
+@pytest.mark.django_db
+def test_detail_page_records_server_status(db_roles):
+    dept, approver, requester, cost_center = _org_setup(db_roles, "DEPT-PAGE")
+    pr = _submitted_pr(requester, dept, cost_center, title="Detail page switch")
+    client = Client()
+    client.force_login(approver)
+    page = client.get(reverse("requisition_detail", args=[pr.id]))
+    assert page.status_code == 200
+    html = page.content.decode()
+    assert "Approve Requisition" in html
+    assert "Within approval limit." in html
+    posted = client.post(
+        reverse("department_need_review", args=[pr.id]),
+        {"decision": DECISION_CONFIRM_NEED, "comments": "Confirmed on the detail page."},
+    )
+    assert posted.status_code == 302
+    followed = client.get(posted.url)
+    assert "Budget Review" in followed.content.decode()
+    pr.refresh_from_db()
+    assert pr.status == PurchaseRequisition.STATUS_BUDGET_REVIEW
+    with pytest.raises(WorkflowConflict):
+        department_need_review_service(
+            requisition=pr,
+            approver=approver,
+            decision=DECISION_REJECT_NEED,
+            comments="too late",
+        )

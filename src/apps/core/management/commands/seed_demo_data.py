@@ -5,6 +5,8 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 
 from apps.accounts.models import Role, User
+from apps.approvals.models import ApprovalPolicy
+from apps.approvals.services import add_approval_step_service, create_approval_policy_service
 from apps.budgets.models import Budget, BudgetReservation, SpendLedger
 from apps.budgets.services import allocate_budget_service
 from apps.contracts.models import Contract, ContractAlert, ContractMilestone
@@ -199,6 +201,20 @@ class Command(BaseCommand):
             )
 
         # 6. Requisition & Budget Reservation
+        if not ApprovalPolicy.objects.filter(name="IT Operations PR Policy").exists():
+            policy = create_approval_policy_service(
+                name="IT Operations PR Policy",
+                module=ApprovalPolicy.MODULE_PR,
+                min_amount=Decimal("0.00"),
+                department=dept_it,
+            )
+            add_approval_step_service(
+                policy=policy,
+                step_number=1,
+                approver_role=roles[Role.DEPT_APPROVER],
+                specific_approver=approver,
+                description="Department approver confirms business need",
+            )
         pr = create_purchase_requisition_service(
             title="Enterprise Core Routers Upgrade",
             justification="Upgrade data center core networking switches to support high-throughput cloud cluster.",

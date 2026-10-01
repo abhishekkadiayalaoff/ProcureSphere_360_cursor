@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ detail.row.pr_number }} — Department Approval{% endblock %}
+{% block breadcrumb %}Procurement / Department Approval / {{ detail.row.pr_number }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+    <div>
+        <a href="{% url 'department_dashboard' %}" class="small">Department Approval</a>
+        <h1 class="h3 fw-bold mb-1">{{ detail.row.pr_number }}</h1>
+        <p class="mb-0">{{ requisition.title }}</p>
+    </div>
+    <span class="badge text-bg-secondary">{{ requisition.get_status_display }}</span>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold">Business justification</div>
+            <div class="card-body">
+                <p>{{ detail.justification }}</p>
+                <div class="small text-muted">Requested delivery {{ requisition.requested_delivery_date }} · {{ detail.row.priority }} · Aging {{ detail.row.aging }}</div>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold">Line items</div>
+            <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>Description</th><th>Qty</th><th>Unit</th><th>Unit price</th><th>Total</th></tr></thead>
+                    <tbody>
+                        {% for line in detail.lines %}
+                        <tr>
+                            <td>{{ line.description }}</td>
+                            <td>{{ line.quantity }}</td>
+                            <td>{{ line.unit }}</td>
+                            <td>${{ line.unit_price|floatformat:2 }}</td>
+                            <td>${{ line.total|floatformat:2 }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-white text-end fw-bold">Grand total ${{ detail.grand_total|floatformat:2 }} {{ detail.currency }}</div>
+        </div>
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold">Approval history</div>
+            <ul class="list-group list-group-flush">
+                {% for item in detail.history %}
+                <li class="list-group-item">
+                    <div class="fw-semibold">{{ item.action }} · {{ item.previous_state }} → {{ item.new_state }}</div>
+                    <div class="small text-muted">{{ item.actor }} ({{ item.role }}) · {{ item.timestamp }}</div>
+                    {% if item.comment %}<div>{{ item.comment }}</div>{% endif %}
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">No approval actions yet.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold">Budget</div>
+            <div class="card-body">
+                <div class="fw-semibold mb-2">{{ detail.budget.state }}</div>
+                <ul class="list-unstyled small mb-0">
+                    <li>Allocated: {% if detail.budget.allocated != None %}${{ detail.budget.allocated|floatformat:2 }}{% else %}—{% endif %}</li>
+                    <li>Available: {% if detail.budget.available != None %}${{ detail.budget.available|floatformat:2 }}{% else %}—{% endif %}</li>
+                    <li>Reserved: {% if detail.budget.reserved != None %}${{ detail.budget.reserved|floatformat:2 }}{% else %}—{% endif %}</li>
+                    <li>Committed: {% if detail.budget.committed != None %}${{ detail.budget.committed|floatformat:2 }}{% else %}—{% endif %}</li>
+                    <li>Actual: {% if detail.budget.actual != None %}${{ detail.budget.actual|floatformat:2 }}{% else %}—{% endif %}</li>
+                    <li>Requested: ${{ detail.budget.requested|floatformat:2 }}</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold">Approval limit</div>
+            <div class="card-body">
+                <div>PR amount ${{ detail.grand_total|floatformat:2 }}</div>
+                <div>
+                    Limit:
+                    {% if detail.authority.unlimited %}No upper limit{% elif detail.authority.limit_amount %} ${{ detail.authority.limit_amount|floatformat:2 }}{% else %}Not covered{% endif %}
+                </div>
+                <div class="mt-2 {% if detail.authority.within_limit %}text-success{% else %}text-danger{% endif %}">{{ detail.authority.message }}</div>
+                <div class="small text-muted mt-2">Next: {{ detail.next_step }}</div>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold">Attachments</div>
+            <ul class="list-group list-group-flush">
+                {% for file in detail.attachments %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ file.title }}</span>
+                    <a href="{% url 'requisition_attachment_download' file.id %}">Download</a>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">No attachments.</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold">Approval decision</div>
+            <div class="card-body d-grid gap-2">
+                {% if detail.can_decide and detail.authority.within_limit %}
+                <form method="post" action="{% url 'department_need_review' requisition.id %}" onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Processing...';">
+                    {% csrf_token %}
+                    <input type="hidden" name="decision" value="CONFIRM_NEED">
+                    <label class="form-label small" for="approve-comments">Comment</label>
+                    <textarea class="form-control mb-2" id="approve-comments" name="comments" rows="2"></textarea>
+                    <button class="btn btn-success w-100" type="submit">Approve Requisition</button>
+                </form>
+                <button class="btn btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#rejectModal">Reject Requisition</button>
+                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#clarifyModal">Request Clarification</button>
+                {% elif detail.can_decide %}
+                <div class="alert alert-warning mb-0">{{ detail.authority.message }}</div>
+                {% else %}
+                <p class="text-muted mb-0">No department decision is available in the current state.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectTitle">
+    <div class="modal-dialog">
+        <form class="modal-content" method="post" action="{% url 'department_need_review' requisition.id %}" onsubmit="this.querySelector('button[type=submit]').disabled=true;">
+            {% csrf_token %}
+            <input type="hidden" name="decision" value="REJECT_NEED">
+            <div class="modal-header"><h2 class="modal-title h5" id="rejectTitle">Reject Purchase Requisition</h2></div>
+            <div class="modal-body">
+                <label class="form-label" for="reason">Rejection reason</label>
+                <textarea class="form-control" id="reason" name="reason" required></textarea>
+                <label class="form-label mt-2" for="reject-extra">Additional comment</label>
+                <textarea class="form-control" id="reject-extra" name="comments"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger">Reject Requisition</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="clarifyModal" tabindex="-1" aria-labelledby="clarifyTitle">
+    <div class="modal-dialog">
+        <form class="modal-content" method="post" action="{% url 'requisition_clarification' requisition.id %}" onsubmit="this.querySelector('button[type=submit]').disabled=true;">
+            {% csrf_token %}
+            <div class="modal-header"><h2 class="modal-title h5" id="clarifyTitle">Request Clarification</h2></div>
+            <div class="modal-body">
+                <label class="form-label" for="question">Question</label>
+                <textarea class="form-control" id="question" name="question" required></textarea>
+                <label class="form-label mt-2" for="clarify-extra">Comment</label>
+                <textarea class="form-control" id="clarify-extra" name="comments"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

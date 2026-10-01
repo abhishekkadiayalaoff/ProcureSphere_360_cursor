@@ -10,25 +10,35 @@ class DepartmentNeedReviewForm(forms.Form):
             (DECISION_REJECT_NEED, "Need not justified"),
         ]
     )
-    comments = forms.CharField(
-        required=False,
-        widget=forms.Textarea(
-            attrs={
-                "rows": 3,
-                "class": "form-control",
-                "placeholder": "Document the approval decision. Required when rejecting.",
-            }
-        ),
-    )
+    comments = forms.CharField(required=False)
 
     def clean(self):
         cleaned = super().clean()
         decision = cleaned.get("decision")
-        comments = (cleaned.get("comments") or "").strip()
+        reason = (self.data.get("reason") or "").strip()
+        extra = (cleaned.get("comments") or "").strip()
+        if reason and extra:
+            comments = f"{reason}\n{extra}"
+        else:
+            comments = reason or extra
         cleaned["comments"] = comments
         if decision == DECISION_REJECT_NEED and not comments:
             self.add_error(
                 "comments",
                 "Document the approval request: a rejection reason is required.",
             )
+        return cleaned
+
+
+class ClarificationForm(forms.Form):
+    question = forms.CharField(required=True, min_length=3)
+    comments = forms.CharField(required=False)
+
+    def clean(self):
+        cleaned = super().clean()
+        question = (cleaned.get("question") or "").strip()
+        extra = (cleaned.get("comments") or "").strip()
+        if extra:
+            question = f"{question}\n{extra}"
+        cleaned["question"] = question
         return cleaned

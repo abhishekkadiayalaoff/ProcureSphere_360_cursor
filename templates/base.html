@@ -68,8 +68,8 @@
                     </a>
                 </li>
                 <li class="nav-item mb-1">
-                    <a href="#" class="nav-link text-white">
-                        <i class="fa-solid fa-chart-line me-2"></i> Analytics
+                    <a href="/" class="nav-link text-white">
+                        <i class="fa-solid fa-chart-line me-2"></i> Reports
                     </a>
                 </li>
             </ul>
@@ -86,9 +86,24 @@
             <!-- Topbar -->
             <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm px-4 py-3">
                 <div class="container-fluid">
-                    <span class="navbar-brand mb-0 h1 fw-bold text-muted">ERP Portal</span>
+                    <span class="navbar-brand mb-0 h1 fw-bold text-muted">{% block breadcrumb %}Procurement{% endblock %}</span>
                     <div class="d-flex align-items-center">
                         {% if user.is_authenticated %}
+                            <div class="dropdown me-3">
+                                <button class="btn btn-outline-secondary btn-sm position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fa-solid fa-bell"></i>
+                                    {% if unread_notification_count %}
+                                        <span class="badge bg-danger ms-1">{{ unread_notification_count }}</span>
+                                    {% endif %}
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    {% for note in recent_notifications %}
+                                        <li><a class="dropdown-item small" href="{% url 'notification_open' note.id %}">{{ note.title }}</a></li>
+                                    {% empty %}
+                                        <li><span class="dropdown-item small text-muted">No notifications</span></li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
                             <span class="me-3 text-dark fw-semibold"><i class="fa-solid fa-user-circle me-1 text-primary"></i> {{ user.email }}</span>
                             <a href="/logout/" class="btn btn-outline-danger btn-sm"><i class="fa-solid fa-right-from-bracket me-1"></i>Logout</a>
                         {% else %}

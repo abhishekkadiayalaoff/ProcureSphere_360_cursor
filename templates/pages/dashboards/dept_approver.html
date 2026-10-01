@@ -1,267 +1,161 @@
 {% extends 'base.html' %}
 
-{% block title %}Department Approver Dashboard — ProcureSphere 360{% endblock %}
+{% block title %}Department Approval — ProcureSphere 360{% endblock %}
+{% block breadcrumb %}Procurement / Department Approval{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="p-4 mb-4 bg-white rounded shadow-sm border-start border-4 border-primary">
-            <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
-                <div>
-                    <h2 class="fw-bold text-dark mb-1">Department Approver Dashboard</h2>
-                    <p class="text-muted mb-0">
-                        Review business need for <strong>{{ department_name }}</strong>.
-                        Decisions are saved with your session and written to the approval trail.
-                    </p>
-                </div>
-                <span class="badge bg-primary-subtle text-primary border">{{ role_code }}</span>
-            </div>
-        </div>
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1">Department Approval</h1>
+        <p class="text-muted mb-0">Review and process purchase requisitions assigned to your department.</p>
+        <p class="small text-muted mb-0">Department approver reviews need? Confirm to send the requisition to budget review, or document a rejection.</p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <span class="badge text-bg-primary">{{ role_code }}</span>
+        <a class="btn btn-outline-primary" href="{% url 'department_dashboard' %}"><i class="fa-solid fa-rotate"></i> Refresh</a>
     </div>
 </div>
 
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 border-0">
-            <div class="card-body">
-                <div class="text-muted small">Awaiting need review</div>
-                <div class="fs-3 fw-bold text-primary">{{ kpi.awaiting_need_review }}</div>
-            </div>
-        </div>
+        <div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Pending Approval</div><div class="fs-3 fw-bold">{{ kpi.pending_approval }}</div></div></div>
     </div>
     <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 border-0">
-            <div class="card-body">
-                <div class="text-muted small">Budget review</div>
-                <div class="fs-3 fw-bold text-info">{{ kpi.budget_review }}</div>
-            </div>
-        </div>
+        <div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Approved Today</div><div class="fs-3 fw-bold text-success">{{ kpi.approved_today }}</div></div></div>
     </div>
     <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 border-0">
-            <div class="card-body">
-                <div class="text-muted small">Approved</div>
-                <div class="fs-3 fw-bold text-success">{{ kpi.approved }}</div>
-            </div>
-        </div>
+        <div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Rejected Today</div><div class="fs-3 fw-bold text-danger">{{ kpi.rejected_today }}</div></div></div>
     </div>
     <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 border-0">
-            <div class="card-body">
-                <div class="text-muted small">Rejected</div>
-                <div class="fs-3 fw-bold text-danger">{{ kpi.rejected }}</div>
-            </div>
-        </div>
+        <div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Total Pending Value</div><div class="fs-5 fw-bold">${{ kpi.total_pending_value|floatformat:2 }}</div></div></div>
     </div>
     <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 border-0">
-            <div class="card-body">
-                <div class="text-muted small">In sourcing</div>
-                <div class="fs-3 fw-bold">{{ kpi.sourcing }}</div>
-            </div>
-        </div>
+        <div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Overdue Approvals</div><div class="fs-3 fw-bold text-warning">{{ kpi.overdue_approvals }}</div></div></div>
     </div>
     <div class="col-6 col-md-4 col-xl-2">
-        <div class="card shadow-sm h-100 border-0">
-            <div class="card-body">
-                <div class="text-muted small">PO issued</div>
-                <div class="fs-3 fw-bold">{{ kpi.po_issued }}</div>
-            </div>
-        </div>
+        <div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Avg Approval Time</div><div class="fs-5 fw-bold">{% if kpi.average_approval_hours != None %}{{ kpi.average_approval_hours }} h{% else %}—{% endif %}</div></div></div>
     </div>
 </div>
 
-<div class="row g-4 mb-4">
-    <div class="col-lg-5">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-white fw-bold">Requisition approval path</div>
-            <div class="card-body">
-                <img src="/static/images/pr_approval_workflow.png" alt="Purchase requisition approval workflow from department review through purchase order issue" class="img-fluid rounded border">
+<form class="card border-0 shadow-sm mb-4" method="get" action="{% url 'department_dashboard' %}">
+    <div class="card-body row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small" for="q">Search</label>
+            <input class="form-control" id="q" name="q" value="{{ filters.q }}" placeholder="PR, requester, description">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small" for="status">Status</label>
+            <select class="form-select" id="status" name="status">
+                <option value="">All</option>
+                <option value="MANAGER_REVIEW" {% if filters.status == "MANAGER_REVIEW" %}selected{% endif %}>Manager review</option>
+                <option value="SUBMITTED" {% if filters.status == "SUBMITTED" %}selected{% endif %}>Submitted</option>
+                <option value="BUDGET_REVIEW" {% if filters.status == "BUDGET_REVIEW" %}selected{% endif %}>Budget review</option>
+                <option value="APPROVED" {% if filters.status == "APPROVED" %}selected{% endif %}>Approved</option>
+                <option value="REJECTED" {% if filters.status == "REJECTED" %}selected{% endif %}>Rejected</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small" for="priority">Priority</label>
+            <select class="form-select" id="priority" name="priority">
+                <option value="">All</option>
+                <option value="overdue" {% if filters.priority == "overdue" %}selected{% endif %}>Overdue</option>
+                <option value="due_soon" {% if filters.priority == "due_soon" %}selected{% endif %}>Due soon</option>
+                <option value="scheduled" {% if filters.priority == "scheduled" %}selected{% endif %}>Scheduled</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small" for="ordering">Sort</label>
+            <select class="form-select" id="ordering" name="ordering">
+                <option value="-created_at">Newest</option>
+                <option value="created_at" {% if filters.ordering == "created_at" %}selected{% endif %}>Oldest</option>
+                <option value="-total_amount" {% if filters.ordering == "-total_amount" %}selected{% endif %}>Amount high</option>
+                <option value="total_amount" {% if filters.ordering == "total_amount" %}selected{% endif %}>Amount low</option>
+            </select>
+        </div>
+        <div class="col-md-1">
+            <label class="form-label small" for="amount_min">Min</label>
+            <input class="form-control" id="amount_min" name="amount_min" value="{{ filters.amount_min }}">
+        </div>
+        <div class="col-md-1">
+            <label class="form-label small" for="amount_max">Max</label>
+            <input class="form-control" id="amount_max" name="amount_max" value="{{ filters.amount_max }}">
+        </div>
+        <div class="col-md-1">
+            <button class="btn btn-primary w-100" type="submit">Filter</button>
+        </div>
+        <div class="col-12 d-flex gap-2">
+            <input class="form-control form-control-sm" type="date" name="date_from" value="{{ filters.date_from }}" aria-label="From date">
+            <input class="form-control form-control-sm" type="date" name="date_to" value="{{ filters.date_to }}" aria-label="To date">
+            <div class="form-check ms-2">
+                <input class="form-check-input" type="checkbox" name="overdue" value="1" id="overdue" {% if filters.overdue %}checked{% endif %}>
+                <label class="form-check-label" for="overdue">Overdue only</label>
             </div>
         </div>
     </div>
-    <div class="col-lg-7">
-        <div class="card shadow-sm h-100">
-            <div class="card-header bg-white fw-bold">Department requisition status</div>
-            <div class="card-body">
-                <canvas id="deptStatusChart" height="180"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
+</form>
 
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-white fw-bold">Need review queue</div>
-    <div class="card-body">
-        {% if pending_reviews %}
-            {% for row in pending_reviews %}
-                <div class="border rounded p-3 mb-3">
-                    <div class="d-flex flex-wrap justify-content-between gap-2">
-                        <div>
-                            <div class="fw-bold">{{ row.pr.pr_number }} — {{ row.pr.title }}</div>
-                            <div class="text-muted small">
-                                {{ row.pr.department.name }} · {{ row.pr.cost_center.code }} ·
-                                Requested by {{ row.pr.requester.email }} ·
-                                Delivery {{ row.pr.requested_delivery_date }}
-                            </div>
-                        </div>
-                        <div class="text-end">
-                            <div class="fw-bold">${{ row.pr.total_amount|floatformat:2 }}</div>
-                            {% if row.budget_reserved %}
-                                <span class="badge text-bg-success">Budget reserved ${{ row.budget_reserved|floatformat:2 }}</span>
-                            {% else %}
-                                <span class="badge text-bg-warning">No active reservation</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <p class="mt-2 mb-2">{{ row.pr.justification }}</p>
-                    <ol class="list-inline small mb-3">
-                        {% for step in row.workflow.steps %}
-                            <li class="list-inline-item me-2">
-                                {% if step.state == "done" %}
-                                    <span class="badge text-bg-success">{{ step.label }}</span>
-                                {% elif step.state == "current" %}
-                                    <span class="badge text-bg-primary">{{ step.label }}</span>
-                                {% elif step.state == "rejected" %}
-                                    <span class="badge text-bg-danger">{{ step.label }}</span>
-                                {% else %}
-                                    <span class="badge text-bg-light text-dark border">{{ step.label }}</span>
-                                {% endif %}
-                            </li>
-                        {% endfor %}
-                    </ol>
-                    <form method="post" action="{% url 'department_need_review' row.pr.id %}" class="row g-2 align-items-end">
-                        {% csrf_token %}
-                        <div class="col-md-4">
-                            <label class="form-label small" for="decision-{{ row.pr.id }}">Department approver reviews need?</label>
-                            <select class="form-select" id="decision-{{ row.pr.id }}" name="decision" required>
-                                <option value="CONFIRM_NEED">Yes — confirm need and send to budget review</option>
-                                <option value="REJECT_NEED">No — document and reject the request</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label small" for="comments-{{ row.pr.id }}">Document approval decision</label>
-                            <textarea class="form-control" id="comments-{{ row.pr.id }}" name="comments" rows="2" placeholder="Required when the need is not justified."></textarea>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100">Record decision</button>
-                        </div>
-                    </form>
-                </div>
-            {% endfor %}
-        {% else %}
-            <p class="text-muted mb-0">No requisitions are waiting for a department need decision.</p>
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white fw-bold">Purchase Requisitions Awaiting Review</div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead>
+                <tr>
+                    <th>PR Number</th>
+                    <th>Requester</th>
+                    <th>Department</th>
+                    <th>Cost Center</th>
+                    <th>Required By</th>
+                    <th>Description</th>
+                    <th>Total</th>
+                    <th>Currency</th>
+                    <th>Budget</th>
+                    <th>Status</th>
+                    <th>Priority</th>
+                    <th>Aging</th>
+                    <th>Next</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in requisition_rows %}
+                <tr class="{% if row.priority == 'Overdue' %}table-warning{% endif %}">
+                    <td>{{ row.pr_number }}</td>
+                    <td>{{ row.requester }}</td>
+                    <td>{{ row.department }}</td>
+                    <td>{{ row.cost_center }}</td>
+                    <td>{{ row.required_by }}</td>
+                    <td>{{ row.description }}</td>
+                    <td>${{ row.total_amount|floatformat:2 }}</td>
+                    <td>{{ row.currency }}</td>
+                    <td>{{ row.budget_state }}</td>
+                    <td>{{ row.status_label }}</td>
+                    <td>{{ row.priority }}</td>
+                    <td>{{ row.aging }}</td>
+                    <td class="small">{{ row.workflow.route_note }}</td>
+                    <td><a class="btn btn-sm btn-outline-primary" href="{% url 'requisition_detail' row.pr.id %}">View</a></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="14" class="text-center py-5">
+                        <h2 class="h5">You're all caught up</h2>
+                        <p class="text-muted mb-3">No purchase requisitions are currently awaiting your approval.</p>
+                        <a class="btn btn-outline-primary" href="{% url 'department_dashboard' %}">Refresh</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if page_obj.paginator.num_pages > 1 %}
+    <div class="card-footer bg-white d-flex justify-content-between">
+        {% if page_obj.has_previous %}
+            <a href="?page={{ page_obj.previous_page_number }}&q={{ filters.q }}&status={{ filters.status }}">Previous</a>
+        {% else %}<span></span>{% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}&q={{ filters.q }}&status={{ filters.status }}">Next</a>
         {% endif %}
     </div>
+    {% endif %}
 </div>
-
-<div class="row g-4">
-    <div class="col-lg-7">
-        <div class="card shadow-sm">
-            <div class="card-header bg-white fw-bold">Department requisitions</div>
-            <div class="table-responsive">
-                <table class="table table-sm align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Number</th>
-                            <th>Title</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            <th>Path</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for row in requisition_rows %}
-                            <tr>
-                                <td>{{ row.pr.pr_number }}</td>
-                                <td>{{ row.pr.title }}</td>
-                                <td>${{ row.pr.total_amount|floatformat:2 }}</td>
-                                <td>{{ row.pr.get_status_display }}</td>
-                                <td class="small">{{ row.workflow.route_note }}</td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="5" class="text-muted">No requisitions are in your department scope.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    <div class="col-lg-5">
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-white fw-bold">Department budget position</div>
-            <div class="table-responsive">
-                <table class="table table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>Cost center</th>
-                            <th>Available</th>
-                            <th>Reserved</th>
-                            <th>Actual</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for budget in budget_rows %}
-                            <tr>
-                                <td>{{ budget.code }}<div class="text-muted small">{{ budget.period }}</div></td>
-                                <td>${{ budget.available|floatformat:2 }}</td>
-                                <td>${{ budget.reserved|floatformat:2 }}</td>
-                                <td>${{ budget.actual|floatformat:2 }}</td>
-                            </tr>
-                        {% empty %}
-                            <tr>
-                                <td colspan="4" class="text-muted">No budget is allocated for this department.</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="card shadow-sm">
-            <div class="card-header bg-white fw-bold">Recent approval decisions</div>
-            <ul class="list-group list-group-flush">
-                {% for action in recent_actions %}
-                    <li class="list-group-item">
-                        <div class="fw-semibold">{{ action.action }} → {{ action.new_state }}</div>
-                        <div class="small text-muted">{{ action.actor.email }} · {{ action.created_at }}</div>
-                        {% if action.comments %}<div class="small">{{ action.comments }}</div>{% endif %}
-                    </li>
-                {% empty %}
-                    <li class="list-group-item text-muted">No approval actions yet.</li>
-                {% endfor %}
-            </ul>
-        </div>
-    </div>
-</div>
-
-{{ status_counts|json_script:"dept-status-data" }}
-<script>
-    (function () {
-        const canvas = document.getElementById("deptStatusChart");
-        if (!canvas || typeof Chart === "undefined") {
-            return;
-        }
-        const raw = JSON.parse(document.getElementById("dept-status-data").textContent);
-        const labels = Object.keys(raw);
-        const values = labels.map((key) => raw[key]);
-        new Chart(canvas, {
-            type: "bar",
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: "Requisitions",
-                    data: values,
-                    backgroundColor: "#0d6efd"
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-            }
-        });
-    })();
-</script>
 {% endblock %}

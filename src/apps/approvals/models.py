@@ -65,12 +65,14 @@ class ApprovalAction(TimeStampedModel):
     ACTION_APPROVE = "APPROVED"
     ACTION_REJECT = "REJECTED"
     ACTION_DELEGATE = "DELEGATED"
+    ACTION_CLARIFY = "CLARIFICATION"
 
     ACTION_CHOICES = [
         (ACTION_SUBMIT, "Submitted"),
         (ACTION_APPROVE, "Approved"),
         (ACTION_REJECT, "Rejected"),
         (ACTION_DELEGATE, "Delegated"),
+        (ACTION_CLARIFY, "Clarification requested"),
     ]
 
     policy_step = models.ForeignKey(ApprovalStep, on_delete=models.SET_NULL, null=True, blank=True)

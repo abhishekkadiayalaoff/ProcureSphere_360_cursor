@@ -1,10 +1,30 @@
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.db import connection
+from django.db.models import Avg, Sum
 from django.http import JsonResponse
 from django.shortcuts import render
 from redis import Redis
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
+
+from apps.budgets.models import Budget, SpendLedger
+from apps.invoices.models import MatchException, SupplierInvoice
+from apps.orders.models import PurchaseOrder
+from apps.reports.services import (
+    get_contract_expiry_report,
+    get_invoice_exception_aging_report,
+    get_po_status_report,
+    get_pr_aging_report,
+    get_spend_analytics_report,
+    get_supplier_performance_report,
+)
+from apps.requisitions.forms import DepartmentNeedReviewForm
+from apps.requisitions.models import PurchaseRequisition
+from apps.requisitions.selectors import build_department_dashboard_context
+from apps.scorecards.models import VendorScorecard
+from apps.sourcing.models import SourcingEvent
+from apps.vendors.models import Vendor
 
 
 def health_check_view(request):
@@ -47,23 +67,15 @@ class HealthAPIView(APIView):
         return health_check_view(request)
 
 
-from django.contrib.auth.decorators import login_required
-from apps.reports.services import (
-    get_pr_aging_report,
-    get_spend_analytics_report,
-    get_po_status_report,
-    get_invoice_exception_aging_report,
-    get_contract_expiry_report,
-    get_supplier_performance_report,
-)
-
 @login_required(login_url="/login/")
 def home_view(request):
     """
     Dashboard / Landing page view based on user role with live aggregated ERP metrics.
     """
-    role_code = getattr(request.user, "role_code", None) or (request.user.role.code if hasattr(request.user, "role") and request.user.role else None)
-    
+    role_code = getattr(request.user, "role_code", None) or (
+        request.user.role.code if hasattr(request.user, "role") and request.user.role else None
+    )
+
     template_map = {
         "SUPER_ADMIN": "pages/dashboards/super_admin.html",
         "REQUESTER": "pages/dashboards/requester.html",
@@ -76,35 +88,34 @@ def home_view(request):
         "AUDITOR": "pages/dashboards/auditor.html",
         "VENDOR_USER": "pages/dashboards/vendor_user.html",
     }
-    
+
     template_name = template_map.get(role_code, "pages/dashboard.html")
 
-    # Aggregate ERP Metrics (from dev branch)
-    from django.db.models import Avg, Count, Sum
-    from apps.budgets.models import Budget, SpendLedger
-    from apps.invoices.models import MatchException, SupplierInvoice
-    from apps.orders.models import PurchaseOrder
-    from apps.requisitions.models import PurchaseRequisition
-    from apps.scorecards.models import VendorScorecard
-    from apps.sourcing.models import SourcingEvent
-    from apps.vendors.models import Vendor
-
     total_pr_count = PurchaseRequisition.objects.count()
-    pending_pr_count = PurchaseRequisition.objects.filter(status__in=["SUBMITTED", "MANAGER_REVIEW", "BUDGET_REVIEW"]).count()
-    
+    pending_pr_count = PurchaseRequisition.objects.filter(
+        status__in=["SUBMITTED", "MANAGER_REVIEW", "BUDGET_REVIEW"]
+    ).count()
+
     total_vendors = Vendor.objects.count()
     active_vendors = Vendor.objects.filter(status="ACTIVE").count()
     kyc_review_vendors = Vendor.objects.filter(status="KYC_REVIEW").count()
 
-    open_sourcing_events = SourcingEvent.objects.filter(status__in=["PUBLISHED", "BID_WINDOW"]).count()
+    open_sourcing_events = SourcingEvent.objects.filter(
+        status__in=["PUBLISHED", "BID_WINDOW"]
+    ).count()
     total_pos = PurchaseOrder.objects.count()
-    
+
     total_invoices = SupplierInvoice.objects.count()
     pending_exceptions = MatchException.objects.filter(status="OPEN").count()
 
     allocated_budget = Budget.objects.aggregate(total=Sum("allocated_amount"))["total"] or 0
-    committed_spend = SpendLedger.objects.filter(entry_type="COMMITMENT").aggregate(total=Sum("amount"))["total"] or 0
-    actual_spend = SpendLedger.objects.filter(entry_type="ACTUAL").aggregate(total=Sum("amount"))["total"] or 0
+    committed_spend = (
+        SpendLedger.objects.filter(entry_type="COMMITMENT").aggregate(total=Sum("amount"))["total"]
+        or 0
+    )
+    actual_spend = (
+        SpendLedger.objects.filter(entry_type="ACTUAL").aggregate(total=Sum("amount"))["total"] or 0
+    )
 
     avg_scorecard = VendorScorecard.objects.aggregate(avg=Avg("composite_score"))["avg"] or 0.0
 
@@ -126,8 +137,12 @@ def home_view(request):
             "committed_spend": float(committed_spend),
             "actual_spend": float(actual_spend),
             "avg_scorecard": round(float(avg_scorecard), 1),
-        }
+        },
     }
+
+    if role_code == "DEPT_APPROVER":
+        context.update(build_department_dashboard_context(request.user))
+        context["review_form"] = DepartmentNeedReviewForm()
 
     if role_code == "SUPER_ADMIN":
         pr_data = get_pr_aging_report()
@@ -142,7 +157,9 @@ def home_view(request):
             "total_pos": len(po_data),
             "total_spend": sum(item["actual"] for item in spend_data) if spend_data else 0,
             "pending_exceptions": len([item for item in inv_data if item["status"] == "OPEN"]),
-            "expiring_contracts": len([item for item in contract_data if 0 <= item["days_to_expiry"] <= 60]),
+            "expiring_contracts": len(
+                [item for item in contract_data if 0 <= item["days_to_expiry"] <= 60]
+            ),
             "vendor_count": len(scorecard_data),
         }
 

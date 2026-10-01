@@ -43,6 +43,15 @@
                         <i class="fa-solid fa-file-invoice-dollar me-2"></i> Requisitions (PR)
                     </a>
                 </li>
+                {% if user.is_authenticated %}
+                    {% if user.role_code == "DEPT_APPROVER" or user.role_code == "SUPER_ADMIN" %}
+                    <li class="nav-item mb-1">
+                        <a href="/requisitions/approvals/" class="nav-link text-white">
+                            <i class="fa-solid fa-user-check me-2"></i> Department Approvals
+                        </a>
+                    </li>
+                    {% endif %}
+                {% endif %}
                 <li class="nav-item mb-1">
                     <a href="/orders/" class="nav-link text-white">
                         <i class="fa-solid fa-cart-shopping me-2"></i> Purchase Orders
@@ -91,6 +100,14 @@
 
             <!-- Page Content -->
             <main class="container-fluid p-4 overflow-auto">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
                 {% block content %}{% endblock %}
             </main>
             

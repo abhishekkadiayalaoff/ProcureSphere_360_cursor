@@ -19,10 +19,10 @@ env = environ.Env(
     REDIS_URL=(str, "redis://127.0.0.1:6379/0"),
 )
 
-# Read .env file if present
+# Read .env from the project root. Values in that file override stale shell variables.
 env_file = BASE_DIR / ".env"
 if env_file.exists():
-    env.read_env(str(env_file))
+    env.read_env(str(env_file), overwrite=True)
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG")
@@ -123,7 +123,11 @@ if DB_ENGINE == "django.db.backends.sqlite3":
         }
     }
 elif env.str("DATABASE_URL", default=""):
-    DATABASES = {"default": env.db("DATABASE_URL")}
+    database = env.db("DATABASE_URL")
+    host = database.get("HOST") or ""
+    if "supabase.co" in host or "pooler.supabase.com" in host:
+        database.setdefault("OPTIONS", {}).setdefault("sslmode", "require")
+    DATABASES = {"default": database}
 else:
     DATABASES = {
         "default": {

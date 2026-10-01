@@ -91,6 +91,16 @@ def home_view(request):
 
     template_name = template_map.get(role_code, "pages/dashboard.html")
 
+    if role_code == "DEPT_APPROVER":
+        context = {
+            "project_name": "ProcureSphere 360",
+            "version": "1.0.0-DRAFT",
+            "role_code": role_code,
+        }
+        context.update(build_department_dashboard_context(request.user, request.GET))
+        context["review_form"] = DepartmentNeedReviewForm()
+        return render(request, template_name, context)
+
     total_pr_count = PurchaseRequisition.objects.count()
     pending_pr_count = PurchaseRequisition.objects.filter(
         status__in=["SUBMITTED", "MANAGER_REVIEW", "BUDGET_REVIEW"]
@@ -139,10 +149,6 @@ def home_view(request):
             "avg_scorecard": round(float(avg_scorecard), 1),
         },
     }
-
-    if role_code == "DEPT_APPROVER":
-        context.update(build_department_dashboard_context(request.user, request.GET))
-        context["review_form"] = DepartmentNeedReviewForm()
 
     if role_code == "SUPER_ADMIN":
         pr_data = get_pr_aging_report()

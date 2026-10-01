@@ -30,7 +30,7 @@
                     <td class="fw-bold">Active Record</td>
                     <td><span class="badge bg-primary">{{ item.status }}</span></td>
                     <td class="pe-4 text-end">
-                        <button class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-eye"></i></button>
+                        <a class="btn btn-sm btn-outline-secondary" href="{% url 'requisition_detail' item.id %}"><i class="fa-solid fa-eye"></i> View</a>
                     </td>
                 </tr>
                 {% empty %}

@@ -76,6 +76,7 @@ Status: Phase 0 Foundation in progress.
 ## Session Log
 
 ```
+2026-10-01 | cursor | cursor/department-approver-dashboard-5230 | Department approval dashboard only: session queue, KPIs, detail, approve to budget review, reject with reason, audit. No PR clarification workflow. | pytest 18 passed | Finance still owns budget-permitted | None
 2026-09-30 | agent | main | Completed Phase 3 & All 7 Day-90 Acceptance Demonstrations (Invoices & 3-Way Match Engine, Price/Qty Tolerance Exception Handling, SpendLedger actual spend transition, Vendor Scorecard calculation, Analytics Dashboards, 9 Mandatory Reports, Audited CSV Exports, Celery Beat Contract alerts, Demos 1-7 tests passing) | 9 passed (85% coverage), ruff/black 0 errors | Phase 4 Hardening & Handover | None
 2026-09-30 | agent | main | Completed Phase 2 (Sealed Sourcing RFQ/RFP, Bidding Privacy, Award Approval, PO Generation & Amendment Versioning, Goods Receipt with partial delivery, Contract Lifecycle, Celery Beat alerts, Demo 3 & 4 tests passing) | 6 passed (89% coverage), ruff/black 0 errors | Phase 3: Invoices, 3-Way Match, Spend Ledger, Scorecards, Reports | None
 2026-09-30 | agent | main | Completed Phase 1 (Org, Dept, CostCenter, Approval Policy Engine with delegates, Vendor KYC & governance, Budget Reservation, PR multi-level approval, Demo 1 & 2 integration tests passing) | 4 passed (88% coverage), ruff/black 0 errors | Phase 2: Sourcing RFQ/RFP, Sealed Bids, PO Versioning, Receipts, Contracts | None

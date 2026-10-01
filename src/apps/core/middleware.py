@@ -17,6 +17,10 @@ def get_client_ip():
     return getattr(_request_context, "client_ip", None)
 
 
+def get_user_agent():
+    return getattr(_request_context, "user_agent", "")
+
+
 class RequestIDMiddleware:
     """
     Middleware that assigns a unique UUID correlation ID (X-Request-ID) to every HTTP request.
@@ -37,6 +41,7 @@ class RequestIDMiddleware:
         else:
             ip = request.META.get("REMOTE_ADDR")
         _request_context.client_ip = ip
+        _request_context.user_agent = request.META.get("HTTP_USER_AGENT", "")
 
         response = self.get_response(request)
         response["X-Request-ID"] = request_id

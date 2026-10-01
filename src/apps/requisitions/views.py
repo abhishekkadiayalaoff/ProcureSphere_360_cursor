@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from apps.accounts.models import Role
-from apps.requisitions.forms import ClarificationForm, DepartmentNeedReviewForm
+from apps.requisitions.forms import DepartmentNeedReviewForm
 from apps.requisitions.models import PRAttachment, PurchaseRequisition
 from apps.requisitions.selectors import (
     build_department_dashboard_context,
@@ -17,7 +17,6 @@ from apps.requisitions.services import (
     WorkflowConflict,
     department_need_review_service,
     next_workflow_label,
-    request_pr_clarification_service,
 )
 
 
@@ -75,7 +74,6 @@ def requisition_detail_view(request, pr_id):
             "detail": detail,
             "role_code": request.user.role_code,
             "reject_form": DepartmentNeedReviewForm(initial={"decision": "REJECT_NEED"}),
-            "clarify_form": ClarificationForm(),
         },
     )
 
@@ -129,34 +127,3 @@ def _handle_decision(request, pr_id):
 @require_POST
 def department_need_review_view(request, pr_id):
     return _handle_decision(request, pr_id)
-
-
-@login_required(login_url="/login/")
-@require_POST
-def clarification_view(request, pr_id):
-    if not _can_open_department_dashboard(request.user):
-        raise PermissionDenied("Only a department approver can request clarification.")
-    requisition = get_object_or_404(PurchaseRequisition, pk=pr_id)
-    form = ClarificationForm(request.POST)
-    if not form.is_valid():
-        messages.error(request, "A clarification question is required.")
-        return redirect("requisition_detail", pr_id=pr_id)
-    try:
-        updated = request_pr_clarification_service(
-            requisition=requisition,
-            approver=request.user,
-            question=form.cleaned_data["question"],
-        )
-    except PermissionDenied:
-        raise
-    except WorkflowConflict as exc:
-        messages.error(request, exc.message)
-        return redirect("requisition_detail", pr_id=pr_id)
-    except ValidationError as exc:
-        messages.error(request, " ".join(exc.messages))
-        return redirect("requisition_detail", pr_id=pr_id)
-    messages.success(
-        request,
-        f"Clarification requested on {updated.pr_number}. Status remains {updated.get_status_display()}.",
-    )
-    return redirect("requisition_detail", pr_id=updated.id)

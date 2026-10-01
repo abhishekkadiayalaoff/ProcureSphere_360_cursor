@@ -30,15 +30,3 @@ class DepartmentNeedReviewForm(forms.Form):
         return cleaned
 
 
-class ClarificationForm(forms.Form):
-    question = forms.CharField(required=True, min_length=3)
-    comments = forms.CharField(required=False)
-
-    def clean(self):
-        cleaned = super().clean()
-        question = (cleaned.get("question") or "").strip()
-        extra = (cleaned.get("comments") or "").strip()
-        if extra:
-            question = f"{question}\n{extra}"
-        cleaned["question"] = question
-        return cleaned

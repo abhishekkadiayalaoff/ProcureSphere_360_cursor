@@ -227,7 +227,7 @@ def test_department_dashboard_session_flow(db_roles):
     body = page.content.decode()
     assert "Department Approval" in body
     assert pr.pr_number in body
-    assert "Department approver reviews need?" in body
+    assert "Review and process purchase requisitions awaiting your approval." in body
     assert "Session dashboard routers" in body
 
     confirmed = client.post(
@@ -278,7 +278,7 @@ def test_department_review_api_rbac(db_roles, api_client):
 
 
 @pytest.mark.django_db
-def test_queue_search_limit_conflict_and_clarification(db_roles, api_client):
+def test_queue_search_limit_and_conflict(db_roles, api_client):
     dept, approver, requester, cost_center = _org_setup(db_roles, "DEPT-Q")
     pr = _submitted_pr(requester, dept, cost_center, title="Unique router search token")
     Notification.objects.get(recipient=approver, title__contains=pr.pr_number)
@@ -297,18 +297,6 @@ def test_queue_search_limit_conflict_and_clarification(db_roles, api_client):
     detail = api_client.get(f"/api/v1/requisitions/{pr.id}/approval-detail/")
     assert detail.status_code == 200
     assert detail.json()["authority"]["within_limit"] is True
-
-    clarified = api_client.post(
-        f"/api/v1/requisitions/{pr.id}/clarification/",
-        {"question": "Which building receives the routers?"},
-        format="json",
-    )
-    assert clarified.status_code == 200
-    pr.refresh_from_db()
-    assert pr.status == PurchaseRequisition.STATUS_MANAGER_REVIEW
-    assert Notification.objects.filter(
-        recipient=requester, title__contains="Clarification"
-    ).exists()
 
     pr.status = PurchaseRequisition.STATUS_APPROVED
     pr.save(update_fields=["status"])

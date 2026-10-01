@@ -109,7 +109,6 @@
                     <button class="btn btn-success w-100" type="submit">Approve Requisition</button>
                 </form>
                 <button class="btn btn-outline-danger" type="button" data-bs-toggle="modal" data-bs-target="#rejectModal">Reject Requisition</button>
-                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#clarifyModal">Request Clarification</button>
                 {% elif detail.can_decide %}
                 <div class="alert alert-warning mb-0">{{ detail.authority.message }}</div>
                 {% else %}
@@ -140,22 +139,4 @@
     </div>
 </div>
 
-<div class="modal fade" id="clarifyModal" tabindex="-1" aria-labelledby="clarifyTitle">
-    <div class="modal-dialog">
-        <form class="modal-content" method="post" action="{% url 'requisition_clarification' requisition.id %}" onsubmit="this.querySelector('button[type=submit]').disabled=true;">
-            {% csrf_token %}
-            <div class="modal-header"><h2 class="modal-title h5" id="clarifyTitle">Request Clarification</h2></div>
-            <div class="modal-body">
-                <label class="form-label" for="question">Question</label>
-                <textarea class="form-control" id="question" name="question" required></textarea>
-                <label class="form-label mt-2" for="clarify-extra">Comment</label>
-                <textarea class="form-control" id="clarify-extra" name="comments"></textarea>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                <button type="submit" class="btn btn-primary">Submit</button>
-            </div>
-        </form>
-    </div>
-</div>
 {% endblock %}

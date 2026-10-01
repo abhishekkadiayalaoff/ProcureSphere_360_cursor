@@ -443,39 +443,3 @@ def department_need_review_service(
             f"/requisitions/{locked.id}/",
         )
     return locked
-
-
-@transaction.atomic
-def request_pr_clarification_service(
-    *,
-    requisition: PurchaseRequisition,
-    approver: User,
-    question: str,
-) -> PurchaseRequisition:
-    """
-    Asks the requester for clarification without changing the requisition state.
-    """
-    if not user_can_review_department_need(approver, requisition):
-        raise PermissionDenied("You are not allowed to review this department requisition.")
-
-    question = (question or "").strip()
-    if not question:
-        raise ValidationError("A clarification question is required.")
-
-    locked = _lock_reviewable(requisition)
-    record_approval_action_service(
-        target_object_id=locked.id,
-        target_model_name="PurchaseRequisition",
-        actor=approver,
-        action=ApprovalAction.ACTION_CLARIFY,
-        previous_state=locked.status,
-        new_state=locked.status,
-        comments=question,
-    )
-    _notify(
-        locked.requester,
-        f"Clarification requested on {locked.pr_number}",
-        question,
-        f"/requisitions/{locked.id}/",
-    )
-    return locked

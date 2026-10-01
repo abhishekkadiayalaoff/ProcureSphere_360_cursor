@@ -12,11 +12,6 @@ urlpatterns = [
         name="department_need_review",
     ),
     path(
-        "<uuid:pr_id>/clarification/",
-        views.clarification_view,
-        name="requisition_clarification",
-    ),
-    path(
         "attachments/<uuid:attachment_id>/download/",
         views.attachment_download_view,
         name="requisition_attachment_download",

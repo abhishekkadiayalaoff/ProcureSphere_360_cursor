@@ -19,7 +19,6 @@ from .services import (
     WorkflowConflict,
     department_need_review_service,
     next_workflow_label,
-    request_pr_clarification_service,
 )
 
 
@@ -217,7 +216,9 @@ class DepartmentNeedReviewAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         decision = request.data.get("decision", "")
-        comments = request.data.get("comments", "")
+        reason = str(request.data.get("reason") or "").strip()
+        extra = str(request.data.get("comments") or "").strip()
+        comments = f"{reason}\n{extra}" if reason and extra else reason or extra
         try:
             updated = department_need_review_service(
                 requisition=requisition,
@@ -249,43 +250,6 @@ class DepartmentNeedReviewAPIView(APIView):
         )
 
 
-class RequisitionClarificationAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-    throttle_classes = [ApprovalActionThrottle]
-
-    def post(self, request, pk):
-        requisition = get_requisition_by_id(pk)
-        if requisition is None:
-            return _api_error(
-                "NOT_FOUND", "Purchase requisition was not found.", status.HTTP_404_NOT_FOUND
-            )
-        question = request.data.get("question") or request.data.get("comments") or ""
-        try:
-            updated = request_pr_clarification_service(
-                requisition=requisition,
-                approver=request.user,
-                question=question,
-            )
-        except DjangoPermissionDenied as exc:
-            return _api_error("PERMISSION_DENIED", str(exc), status.HTTP_403_FORBIDDEN)
-        except DjangoValidationError as exc:
-            return _api_error(
-                "VALIDATION_ERROR",
-                " ".join(exc.messages),
-                status.HTTP_400_BAD_REQUEST,
-                {"messages": exc.messages},
-            )
-        except WorkflowConflict as exc:
-            return _api_error("CONFLICT", exc.message, status.HTTP_409_CONFLICT)
-        return Response(
-            {
-                "pr_number": updated.pr_number,
-                "status": updated.status,
-                "next_step": next_workflow_label(updated),
-            }
-        )
-
-
 router = DefaultRouter()
 router.register(r"", PurchaseRequisitionViewSet, basename="requisition")
 
@@ -304,10 +268,5 @@ urlpatterns = [
         "<uuid:pk>/department-review/",
         DepartmentNeedReviewAPIView.as_view(),
         name="requisition-department-review",
-    ),
-    path(
-        "<uuid:pk>/clarification/",
-        RequisitionClarificationAPIView.as_view(),
-        name="requisition-clarification",
     ),
 ] + router.urls

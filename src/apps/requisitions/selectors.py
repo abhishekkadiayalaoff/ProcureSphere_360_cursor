@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from urllib.parse import urlencode
 
 from django.core.paginator import Paginator
 from django.db.models import Q, Sum
@@ -532,6 +533,13 @@ def build_department_dashboard_context(user, params=None):
         "requisition_rows": rows,
         "page_obj": page,
         "filters": params,
+        "page_query": urlencode(
+            {
+                key: value
+                for key, value in params.items()
+                if value not in (None, "") and key != "page"
+            }
+        ),
         "recent_actions": recent_actions[:12],
         "budget_rows": budget_rows,
         "status_counts": counts,

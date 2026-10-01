@@ -18,7 +18,17 @@ if ! pg_isready -h 127.0.0.1 -p 5432 -q 2>/dev/null; then
   fi
 fi
 
-for _ in $(seq 1 30); do
+if ! pg_isready -h 127.0.0.1 -p 5432 -q 2>/dev/null; then
+  if command -v pg_ctlcluster >/dev/null 2>&1; then
+    pg_version="$(ls /etc/postgresql/ 2>/dev/null | sort -n | tail -1 || true)"
+    if [ -n "${pg_version}" ]; then
+      sudo pg_ctlcluster "${pg_version}" main start 2>/dev/null \
+        || sudo pg_ctlcluster "${pg_version}" main restart
+    fi
+  fi
+fi
+
+for _ in $(seq 1 45); do
   if pg_isready -h 127.0.0.1 -p 5432 -q 2>/dev/null; then
     break
   fi

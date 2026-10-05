@@ -105,6 +105,50 @@ def check_and_reserve_budget_service(*, requisition, requested_by_user) -> Budge
 
 
 @transaction.atomic
+def release_pr_budget_reservation_service(*, requisition, actor) -> int:
+    """
+    Releases active PR budget reservations when a requisition is rejected.
+    Prior reservation and ledger rows are kept; a reversing ledger entry records the release.
+    """
+    reservations = BudgetReservation.objects.select_for_update().filter(
+        requisition=requisition,
+        status=BudgetReservation.STATUS_RESERVED,
+    )
+    released = 0
+    for reservation in reservations:
+        budget = Budget.objects.select_for_update().get(pk=reservation.budget_id)
+        budget.reserved_amount -= reservation.amount
+        if budget.reserved_amount < Decimal("0.00"):
+            budget.reserved_amount = Decimal("0.00")
+        budget.save(update_fields=["reserved_amount", "updated_at"])
+
+        reservation.status = BudgetReservation.STATUS_RELEASED
+        reservation.save(update_fields=["status", "updated_at"])
+
+        SpendLedger.objects.create(
+            budget=budget,
+            entry_type=SpendLedger.ENTRY_RESERVATION,
+            amount=-reservation.amount,
+            reference_number=requisition.pr_number,
+            description=f"PR reservation released on rejection: {requisition.title}",
+        )
+        AuditLog.objects.create(
+            actor=actor,
+            action=AuditLog.ACTION_UPDATE,
+            target_model="BudgetReservation",
+            target_object_id=str(reservation.id),
+            previous_state={"status": BudgetReservation.STATUS_RESERVED},
+            new_state={
+                "status": BudgetReservation.STATUS_RELEASED,
+                "amount": str(reservation.amount),
+                "pr_number": requisition.pr_number,
+            },
+        )
+        released += 1
+    return released
+
+
+@transaction.atomic
 def convert_commitment_to_actual_service(*, po, invoice, user) -> SpendLedger:
     """
     Moves spend from COMMITMENT to ACTUAL when an invoice is approved/paid.

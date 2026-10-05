@@ -48,5 +48,5 @@ Legend: **C** = Create, **R** = Read, **U** = Update, **D** = Delete, **A** = Ap
 
 - **Requester**: Restricted to items created by user or owned by user's assigned Department / Cost Center.
 - **Vendor User**: Enforced at database selector level (`Vendor.objects.filter(id=user.vendor_id)`). Bids from competing vendors return `403 Forbidden` / filtered out at ORM query level.
-- **Approver**: Restricted to requisitions/POs currently assigned in approval chain or department scope.
+- **Approver**: Restricted to requisitions/POs currently assigned in approval chain or department scope. A department approver can confirm or reject business need only for their own department, or for a department whose approver has delegated to them. Superuser flag alone does not grant that action.
 - **Auditor**: Global read-only access; state-changing endpoints return `403 Forbidden`.

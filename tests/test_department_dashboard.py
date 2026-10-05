@@ -228,7 +228,16 @@ def test_department_dashboard_session_flow(db_roles):
     assert "Department Approval" in body
     assert pr.pr_number in body
     assert "Review and process purchase requisitions awaiting your approval." in body
+    assert "Department approval process" in body
+    assert "Department approver reviews need?" in body
     assert "Session dashboard routers" in body
+
+    detail = client.get(reverse("requisition_detail", args=[pr.id]))
+    assert detail.status_code == 200
+    detail_body = detail.content.decode()
+    assert "Approval process" in detail_body
+    assert "approval-step-current" in detail_body
+    assert "Department approver reviews need?" in detail_body
 
     confirmed = client.post(
         reverse("department_need_review", args=[pr.id]),

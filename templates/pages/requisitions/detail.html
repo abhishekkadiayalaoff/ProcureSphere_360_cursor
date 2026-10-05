@@ -13,6 +13,23 @@
     <span class="badge text-bg-secondary">{{ requisition.get_status_display }}</span>
 </div>
 
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white fw-bold">Approval process</div>
+    <div class="card-body">
+        <ol class="approval-process">
+            {% for step in detail.row.workflow.steps %}
+            <li class="approval-step approval-step-{{ step.state }}">
+                <span class="approval-step-index">{{ forloop.counter }}</span>
+                <span>{{ step.label }}</span>
+            </li>
+            {% endfor %}
+        </ol>
+        {% if detail.row.workflow.route_note %}
+        <p class="small text-muted mb-0 mt-3">{{ detail.row.workflow.route_note }}</p>
+        {% endif %}
+    </div>
+</div>
+
 <div class="row g-4">
     <div class="col-lg-8">
         <div class="card border-0 shadow-sm mb-4">

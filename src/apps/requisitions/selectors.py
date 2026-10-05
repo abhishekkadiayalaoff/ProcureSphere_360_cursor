@@ -543,6 +543,7 @@ def build_department_dashboard_context(user, params=None):
         "recent_actions": recent_actions[:12],
         "budget_rows": budget_rows,
         "status_counts": counts,
+        "process_steps": [label for _key, label in WORKFLOW_STEPS],
         "departments": scoped.values(
             "department_id", "department__name", "department__code"
         ).distinct(),

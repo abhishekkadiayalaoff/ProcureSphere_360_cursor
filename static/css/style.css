@@ -147,6 +147,69 @@ h1, h2, h3, h4, h5, h6, .font-heading {
     color: var(--hpe-rose);
 }
 
+.approval-process {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.approval-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 10rem;
+    padding: 0.65rem 0.8rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.75rem;
+    background: #fff;
+    font-size: 0.875rem;
+}
+
+.approval-step-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    background: #e5e7eb;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.approval-step-current {
+    border-color: #01a982;
+    background: #f0fdf8;
+}
+
+.approval-step-current .approval-step-index {
+    background: #01a982;
+    color: #fff;
+}
+
+.approval-step-done .approval-step-index {
+    background: #065f46;
+    color: #fff;
+}
+
+.approval-step-rejected {
+    border-color: #f43f5e;
+    background: #fff1f2;
+}
+
+.approval-step-rejected .approval-step-index {
+    background: #f43f5e;
+    color: #fff;
+}
+
+.approval-step-upcoming,
+.approval-step-skipped {
+    color: #6b7280;
+}
+
 /* Status Badges */
 .badge-status {
     font-size: 0.75rem;

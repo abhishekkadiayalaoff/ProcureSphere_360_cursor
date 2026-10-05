@@ -15,6 +15,21 @@
     </div>
 </div>
 
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-header bg-white fw-bold">Department approval process</div>
+    <div class="card-body">
+        <p class="text-muted small mb-3">A submitted requisition stops here until the department approver confirms the business need. Confirming need sends it to budget review. Rejecting need closes the request and releases the reservation.</p>
+        <ol class="approval-process">
+            {% for label in process_steps %}
+            <li class="approval-step {% if forloop.counter == 2 %}approval-step-current{% endif %}">
+                <span class="approval-step-index">{{ forloop.counter }}</span>
+                <span>{{ label }}</span>
+            </li>
+            {% endfor %}
+        </ol>
+    </div>
+</div>
+
 <div class="row g-3 mb-4">
     <div class="col-6 col-lg">
         <div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="text-muted small">Pending Approvals</div><div class="fs-3 fw-bold">{{ kpi.pending_approval }}</div></div></div>
